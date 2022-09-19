@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../css/blog.css">
+
+<h1> Porting Slate to Qt for WebAssembly</h1>
+
+<p> The 6.4 release makes Qt for WebAssembly a supported platform. In this post we'll take a look at how  to port an existing application to this platform, using the <a href =https://github.com/mitchcurtis/slate>Slate</a> pixel art drawing app as an example. Slate is a Qt Quick-based application; Qt for WebAssembly supports Qt Widgets as well.
+
+<img src="slate.png" width=500px class="center">
+
+<p><i>Porting</i> may not be the right word to use here. Depending on the nature of the applicaiton it might run on WebAssembly without modifications, in which case <i>building for WebAssembly</i> would be a better term. Usually there is something to fix or adapt to the platform, though.
+
+<p>The layer diagram for an application using Qt on the web looks like this:
+
+<img src="qt-wasm-layers.png" width=400px class="center" style="padding:15px">
+
+<p>There are a couple of things to take note of here. First, we are building on the "Web" platform and ignore everything below, since web browsers will abstract this away from us. Second, Emscripten is listed twice, as a thick and a thin layer. This reflects the different ways to use it: as a provider of the libc & POSIX platform implementation and as an interface layer to the web platform. Finally, Qt is in the center (this is a Qt blog after all) but does not cover all functionality the app might need.
+
+<h2>Getting Started</h2>
+
+<p> We'll skip over the very basics here, head over to the <a href="https://emscripten.org">Emscripten documumentation</a> and the <a href="https://doc.qt.io/qt-6/wasm.html">Qt documentation</a> which covers these topics. I reccomend starting with something simpler than a complete application, for example by building small "hello world" app first.
+
+<p> Qt for WebAssembly differs from the other platforms Qt supports in that the app runs in the web browser sandbox. This places restrictions on the applcation, such as limiting access to local files and local fonts. We’ll tackle some of those here in the process of <strike>porting</strike> building Slate for the web.
+
+<p>The modifcations to Slate have not been upstreamed to the main repo yet, and are currently available <a href =https://github.com/msorvig/slate>here</a>. The utility functions used are published separately at <a href=https://git.qt.io/mosorvig/qt-web-utils>Qt Web Utils</a>.
+
+<h2>Building for WebAssembly</h2>
+
+<p> Qt for WebAssembly builds use static linking, are without thread support by default, and are 32-bit builds. For Slate the latter two were unproblematic, however at startup it greets us with the following error:</p>
+
+<img src="slate-error.png" width=500px class="center">
+
+<p> I usually fall back to a static desktop build of Qt on any sort of plugin loading error (this requires building Qt from source, which is arguably easier to do if you are doing that all day anyway), and then debug from there using the desktop host debug tools. Having a successful static desktop build does not guarantee that the WebAssembly build will work, however if the static desktop build does not work then there is little hope for the wasm build.
+
+<p>In the case of Slate the issue was that it has a slightly custom project layout which was preventing the static build logic from finding and linking to an internal QML component. This was fixed by adding a small build system change, though I doubt if this specific fix will be relevant in many other cases. 
+
+<p>With that in place Slate builds and runs successfully to the point where it is usuable as a pixel drawing app. Next, we are going to take a look at several adjustments for the web platform.
+
+<h2>Menu Cleanup</h2>
+
+<br>
+<img src="slate-menu-desktop.png" width=200px class="center" style="padding:10px">
+
+<p>The slate menus has some desktop-isms which do not neccesarily make sense on the web. For example, users do not quit a web app using the "Quit" menu item, instead they close the tab. Also, "Save" and "Save as" can be combined to a single menu item.
+
+<p>This can be implemented by testing for the "wasm" platform at run-time, and then hiding the superflous menu items by setting visibility to false and the height to zero. (Remember to hide the menu separators as well!)</p>
+
+<p class="code">
+Menu {
+    readonly property bool isWebPlatform: Qt.platform.os == "wasm"
+    MenuItem {
+        text: qsTr("Quit")
+        visible: !isWebPlatform
+        height: visible ? implicitHeight : 0
+    }
+}
+</p>
+
+<img src="slate-menu-web.png" width=200px class="center" style="padding:10px">
+
+<h2>Local File Access</h2>
+
+<p>QFile and friends are available also on WebAssembly, with an important caveat that the files operated on by this API are stored on the in-memory file system provided by Emscripten, which means that any data written with QFile is lost after the user navigates away from the app. 
+
+<p>Widgets-based applications may use <a href=https://doc.qt.io/qt-6/qfiledialog.html#getOpenFileContent>QFileDialog::getOpenFileContent()</a> which covers this use case. That API returns the content of the opened file as a QByteArray. This works out well for C++ code, but not so well for QML which does not have a byte array type.
+
+<p>Qt does not have a built-in solution for QML appliactions yet, but we can make one. The apprach will be to save a copy of the file to the in-memory file system, and then give the path to that file to QML code. We can build on top of the existing getOpenFileContent() API (which requires linking against widgets), or on top of the private API in QtGui (but don't tell anyone).
+
+<p>The implementation is available as a helper function in the QtWebUtils repo. Usage in Slate looks like the following:
+
+<p class="code">
+MenuItem {
+    objectName: "openMenuItem"
+    text: qsTr("Open")
+    onTriggered: {
+        if (Qt.platform.os == "wasm") {
+            WebUtils.loadFileToFileSystem("*.slp", "/tmp/tmploadfile.slp",
+                function(tmpFilePath) { loadProject("file://" + tmpFilePath) }
+            );
+        } else {
+            openProjectDialog.open();
+        }
+    }
+}
+</code>
+
+<h2>Fullscreen</h2>
+
+<p>Slate has a fullscreen button, which on desktop platforms use the QWindow::setWindowState() API to transition the window in and out of fullscreen when clicked. This does unfortunately not work out of the box on WebAssembly, since the Qt window is embedded in the web page and does not control the browser window. We need to find a different solution.
+
+<img src="slate-fullscreen.jpg" width=300px class="center" style="padding:10px">
+
+<p>The web platform provides API for transitioning the browser window in and out of fullscreen state, which is relatively easy to call from C++ using emscripten::val. If you are unfamiliar with emscripten::val, then then the short description is that it provides support for accessiong the DOM and native JavaScript API from C++ code.
+
+<p class="code">
+#include &lt;emscripten/val.h&gt;
+
+void toggleFullscreen()
+{
+    using emscripten::val;
+    const val document = val::global("document");
+    const val fullscreenElement = document["fullscreenElement"];
+    if (fullscreenElement.isUndefined() || fullscreenElement.isNull())
+        document["documentElement"].call<void>("requestFullscreen");
+    else
+        document.call<void>("exitFullscreen");
+}</p>
+
+<h2>Warn on Unsaved Changes on Tab Close</h2>
+
+<p>We’d like to warn the user if they are about to lose unsaved data when closing the application. On the web this can happen if the user closes the tab or the browser window, and also if they navigate away using the forward or back buttons.
+
+<img src="slate-tabclose.jpg" width=350px class="center" style="padding:10px">
+
+<p>The <a href= "https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event"> beforeunload event</a> fires in these cases. Web pages can make the browser prompt the user before close by adding an event listener to this event. The recommended practice is to connect to beforeunload only if we actually want to block tab close, so that's what we do.
+
+<p>The wording of the dialog fixed and determined by the browser, in order to prevent the web page from impersonating the browser.
+
+<p class="code">
+
+#include &lt;emscripten/val.h&gt;   
+#include &lt;emscripten/bind.h&gt;
+
+void beforeUnloadhandler(emscripten::val event)
+{
+    // This event handler does not need to take any action in order to display the
+    // confirmation dialog; calling preventDefault() and setting event.returnValue
+    // is sufficent.
+    event.call<void>("preventDefault");
+    event.set("returnValue", std::string(" "));
+}
+
+// Export event handler to JavaScript
+EMSCRIPTEN_BINDINGS(app) {
+    function("beforeUnloadHandler", &beforeUnloadhandler);
+}
+
+void enableTabCloseConfirmation(bool enable)
+{
+    using emscripten::val;
+    const val window = val::global("window");
+    const val eventHandler = val::module_property("beforeUnloadHandler");
+    if (enable)
+        window.call<void>("addEventListener", std::string("beforeunload"), eventHandler);
+    else
+        window.call<void>("removeEventListener", std::string("beforeunload"), eventHandler);
+}
+
+</p>
+
+<h2>Conclusion</h2>
+<p>With this Slate should be usable web applicaiton with the usual web app properties; users can access it without installing anything (other than a browser), developers can push application updates directly to all users without any intermediate steps such as app store reviews or code signing requirements.
+
+</html>

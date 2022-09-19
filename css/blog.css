@@ -1,0 +1,64 @@
+body {
+    font-family: Verdana, sans-serif;
+}
+a {
+  text-decoration:none;
+  color:#B9E0A5;
+}
+
+p {
+    max-width: 750px;
+    margin: auto;
+    padding: 10px;
+    line-height: 2;
+}
+
+h2, h3 {
+    padding: 5px;
+    margin: auto;
+    max-width: 750px;
+}
+
+h1 {
+    padding: 5px;
+    margin: auto;
+    max-width: 750px;
+}
+
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.code {
+    white-space: pre-wrap;
+    font-family: monospace;
+    line-height: 1.5;
+}
+
+
+ul, li {
+    max-width: 650px;
+    margin: auto;
+}
+
+table, caption, tbody, tfoot, thead, tr, td {
+  margin: auto;
+  padding: 15px;
+  border: 2px solid;
+  border-spacing: 10px;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+th {
+    border: 2px solid;
+    padding: 15px;
+}
+
+table {
+  border-collapse: collapse;
+  padding: 50px;
+}
