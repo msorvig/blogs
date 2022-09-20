@@ -63,7 +63,7 @@ Menu {
 
 <p>QFile and friends are available also on WebAssembly, with an important caveat that the files operated on by this API are stored on the in-memory file system provided by Emscripten, which means that any data written with QFile is lost after the user navigates away from the app. 
 
-<p>Widgets-based applications may use <a href=https://doc.qt.io/qt-6/qfiledialog.html#getOpenFileContent>QFileDialog::getOpenFileContent()</a> which covers this use case. That API returns the content of the opened file as a QByteArray. This works out well for C++ code, but not so well for QML which does not have a byte array type.
+<p>Widgets-based applications may use <a href=https://doc.qt.io/qt-6/qfiledialog.html#getOpenFileContent>QFileDialog::getOpenFileContent()</a> which covers this use case. That API returns the content of the opened file as a QByteArray. This works out well for C++ code, but not so well for QML code which works with file Urls.
 
 <p>Qt does not have a built-in solution for QML appliactions yet, but we can make one. The apprach will be to save a copy of the file to the in-memory file system, and then give the path to that file to QML code. We can build on top of the existing getOpenFileContent() API (which requires linking against widgets), or on top of the private API in QtGui (but don't tell anyone).
 
