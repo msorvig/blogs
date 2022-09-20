@@ -9,7 +9,7 @@
 
 <img src="slate.png" width=500px class="center">
 
-<p><i>Porting</i> may not be the right word to use here. Depending on the nature of the applicaiton it might run on WebAssembly without modifications, in which case <i>building for WebAssembly</i> would be a better term. Usually there is something to fix or adapt to the platform, though.
+<p><i>Porting</i> may not be the right word to use here. Depending on the nature of the application it might run on WebAssembly without modifications, in which case <i>building for WebAssembly</i> would be a better term. Usually there is something to fix or adapt to the platform, though.
 
 <p>The layer diagram for an application using Qt on the web looks like this:
 
@@ -33,7 +33,7 @@
 
 <p> I usually fall back to a static desktop build of Qt on any sort of plugin loading error (this requires building Qt from source, which is arguably easier to do if you are doing that all day anyway), and then debug from there using the desktop host debug tools. Having a successful static desktop build does not guarantee that the WebAssembly build will work, however if the static desktop build does not work then there is little hope for the wasm build.
 
-<p>In the case of Slate the issue was that it has a slightly custom project layout which was preventing the static build logic from finding and linking to an internal QML component. This was fixed by adding a small build system change, though I doubt if this specific fix will be relevant in many other cases. 
+<p>In the case of Slate the issue was that it has a slightly custom project layout which was preventing the static build logic from finding and linking to an internal QML component. I fixed this by making a <a href="https://github.com/msorvig/slate/commit/ff1e6a3663aea1ebb5fb62e1f304645afe3eacb0">small change</a> to the build system, though I doubt if this specific fix will be relevant in many other cases. 
 
 <p>With that in place Slate builds and runs successfully to the point where it is usuable as a pixel drawing app. Next, we are going to take a look at several adjustments for the web platform.
 
@@ -42,7 +42,7 @@
 <br>
 <img src="slate-menu-desktop.png" width=200px class="center" style="padding:10px">
 
-<p>The slate menus has some desktop-isms which do not neccesarily make sense on the web. For example, users do not quit a web app using the "Quit" menu item, instead they close the tab. Also, "Save" and "Save as" can be combined to a single menu item.
+<p>The slate file menu has some desktop-isms which do not neccesarily make sense on the web. For example, users do not quit a web app using the "Quit" menu item, instead they close the tab. Also, "Save" and "Save as" can be combined to a single menu item.
 
 <p>This can be implemented by testing for the "wasm" platform at run-time, and then hiding the superflous menu items by setting visibility to false and the height to zero. (Remember to hide the menu separators as well!)</p>
 
@@ -87,11 +87,11 @@ MenuItem {
 
 <h2>Fullscreen</h2>
 
-<p>Slate has a fullscreen button, which on desktop platforms use the QWindow::setWindowState() API to transition the window in and out of fullscreen when clicked. This does unfortunately not work out of the box on WebAssembly, since the Qt window is embedded in the web page and does not control the browser window. We need to find a different solution.
+<p>Slate has a fullscreen button. On desktop platforms, this uses the QWindow::setWindowState() API to transition the window in and out of fullscreen when clicked. This does unfortunately not work out of the box on WebAssembly, since the Qt window is embedded in the web page and does not control the browser window. We need to find a different solution.
 
 <img src="slate-fullscreen.jpg" width=300px class="center" style="padding:10px">
 
-<p>The web platform provides API for transitioning the browser window in and out of fullscreen state, which is relatively easy to call from C++ using emscripten::val. If you are unfamiliar with emscripten::val, then then the short description is that it provides support for accessiong the DOM and native JavaScript API from C++ code.
+<p>The web platform provides API for transitioning the browser window in and out of fullscreen state, which is relatively easy to call from C++ using emscripten::val. If you are unfamiliar with emscripten::val, then the short description is that it provides support for accessiong the DOM and native JavaScript API from C++ code.
 
 <p class="code">
 #include &lt;emscripten/val.h&gt;
@@ -118,7 +118,6 @@ void toggleFullscreen()
 <p>The wording of the dialog fixed and determined by the browser, in order to prevent the web page from impersonating the browser.
 
 <p class="code">
-
 #include &lt;emscripten/val.h&gt;   
 #include &lt;emscripten/bind.h&gt;
 
@@ -150,6 +149,6 @@ void enableTabCloseConfirmation(bool enable)
 </p>
 
 <h2>Conclusion</h2>
-<p>With this Slate should be usable web applicaiton with the usual web app properties; users can access it without installing anything (other than a browser), developers can push application updates directly to all users without any intermediate steps such as app store reviews or code signing requirements.
+<p>With this Slate should be a usable web application with the usual web app properties; users can access it without installing anything (other than a browser), developers can push application updates directly to all users without any intermediate steps such as app store reviews or code signing requirements.
 
 </html>
