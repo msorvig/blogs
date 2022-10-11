@@ -3,9 +3,9 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="../css/blog.css">
 
-<h1> Porting Slate to Qt for WebAssembly</h1>
+<h1>Porting Slate to Qt for WebAssembly</h1>
 
-<p>The 6.4 release makes Qt for WebAssembly a supported platform. In this post we'll take a look at how to port an existing application to this platform, using the <a href =https://github.com/mitchcurtis/slate>Slate</a> pixel art drawing app as an example. Slate is a Qt Quick-based application; Qt for WebAssembly supports Qt Widgets as well.
+<p>The 6.4 release makes Qt for WebAssembly a supported platform. In this post we'll take a look at how to port an existing application to this platform, using the <a href =https://github.com/mitchcurtis/slate>Slate</a> pixel art drawing app as an example. SSlate is a Qt Quick-based application which means Qt Quick will be the focus of this blog post, however Qt for WebAssembly supports Qt Widgets as well and a lot should carry over to that module.
 
 <img src="slate.png" width=500px class="center">
 
@@ -46,7 +46,7 @@
 
 <p>The slate file menu has some desktop-isms which do not neccesarily make sense on the web. For example, users do not quit a web app using the "Quit" menu item, instead they close the tab. Also, "Save" and "Save as" can be combined to a single menu item.
 
-<p>This can be implemented by testing for the "wasm" platform at run-time, and then hiding the superflous menu items by setting visibility to false and the height to zero. (Remember to hide the menu separators as well!)</p>
+<p>This can be <a href=https://github.com/msorvig/slate/commit/e1c4f33e371d92c557dd53edc782f13702531002>implemented</a> by testing for the "wasm" platform at run-time, and then hiding the superflous menu items by setting visibility to false and the height to zero. (Remember to hide the menu separators as well!)</p>
 
 <p class="code">
 Menu {
@@ -69,7 +69,7 @@ Menu {
 
 <p>Qt does not have a built-in solution for QML appliactions yet, but we can make one. The apprach will be to save a copy of the file to the in-memory file system, and then give the path to that file to QML code. We can build on top of the existing getOpenFileContent() API (which requires linking against widgets), or on top of the private API in QtGui (but don't tell anyone).
 
-<p>The implementation is available as a helper function in the QtWebUtils repo. Usage in Slate looks like the following:
+<p>The implementation is available as a <a href=https://git.qt.io/mosorvig/qt-web-utils/-/blob/main/qtwebutils.cpp#L10>helper</a> function in the Qt Web Utils repo. <a href=https://github.com/msorvig/slate/commit/2ca28947e2889d000099a11303391554da372649>Usage</a> in Slate looks like the following:
 
 <p class="code">
 MenuItem {
@@ -109,13 +109,15 @@ void toggleFullscreen()
         document.call<void>("exitFullscreen");
 }</p>
 
+<p> See also the <a href=https://git.qt.io/mosorvig/qt-web-utils/-/blob/main/qtwebutils.cpp#L65>implementation</a> in <a href=https://git.qt.io/mosorvig/qt-web-utils>Qt Web Utils</a>, and <a href="https://github.com/msorvig/slate/commit/80b7634d7a6ddb55e41511849e201e7d71666af0">usage</a> in the Slate port.
+
 <h2>Warn on Unsaved Changes on Tab Close</h2>
 
 <p>We’d like to warn the user if they are about to lose unsaved data when closing the application. On the web this can happen if the user closes the tab or the browser window, and also if they navigate away using the forward or back buttons.
 
 <img src="slate-tabclose.jpg" width=350px class="center" style="padding:10px">
 
-<p>The <a href= "https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event"> beforeunload event</a> fires in these cases. Web pages can make the browser prompt the user before close by adding an event listener to this event. The recommended practice is to connect to beforeunload only if we actually want to block tab close, so that's what we do.
+<p>The <a href= "https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event">beforeunload event</a> fires in these cases. Web pages can make the browser prompt the user before close by adding an event listener to this event. The recommended practice is to connect to beforeunload only if we actually want to block tab close, so that's what we do.
 
 <p>The wording of the dialog fixed and can't be changed by applications, in order to prevent web pages from impersonating the browser.
 
@@ -147,8 +149,9 @@ void enableTabCloseConfirmation(bool enable)
     else
         window.call<void>("removeEventListener", std::string("beforeunload"), eventHandler);
 }
-
 </p>
+
+<p><a href=https://git.qt.io/mosorvig/qt-web-utils/-/blob/main/qtwebutils.cpp#L91>Implementation</a> and <a href=https://github.com/msorvig/slate/commit/a20bb4575428236e61d0567c4f52e92c165c3558>usage</a> in Slate.
 
 <h2>Conclusion</h2>
 <p>With this Slate should be a usable web application with the usual web app properties; users can access it without installing anything (other than a browser), developers can push application updates directly to all users without any intermediate steps such as app store reviews or code signing requirements.
