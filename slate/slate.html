@@ -5,9 +5,11 @@
 
 <h1> Porting Slate to Qt for WebAssembly</h1>
 
-<p> The 6.4 release makes Qt for WebAssembly a supported platform. In this post we'll take a look at how  to port an existing application to this platform, using the <a href =https://github.com/mitchcurtis/slate>Slate</a> pixel art drawing app as an example. Slate is a Qt Quick-based application; Qt for WebAssembly supports Qt Widgets as well.
+<p>The 6.4 release makes Qt for WebAssembly a supported platform. In this post we'll take a look at how to port an existing application to this platform, using the <a href =https://github.com/mitchcurtis/slate>Slate</a> pixel art drawing app as an example. Slate is a Qt Quick-based application; Qt for WebAssembly supports Qt Widgets as well.
 
 <img src="slate.png" width=500px class="center">
+
+<p>Slate is available as a <a href=https://msorvig.github.io/slate/slate.html target="_blank">web application</a> - follow that link if you want to jump ahead and view the finished result.
 
 <p><i>Porting</i> may not be the right word to use here. Depending on the nature of the application it might run on WebAssembly without modifications, in which case <i>building for WebAssembly</i> would be a better term. Usually there is something to fix or adapt to the platform, though.
 
@@ -115,7 +117,7 @@ void toggleFullscreen()
 
 <p>The <a href= "https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event"> beforeunload event</a> fires in these cases. Web pages can make the browser prompt the user before close by adding an event listener to this event. The recommended practice is to connect to beforeunload only if we actually want to block tab close, so that's what we do.
 
-<p>The wording of the dialog fixed and determined by the browser, in order to prevent the web page from impersonating the browser.
+<p>The wording of the dialog fixed and can't be changed by applications, in order to prevent web pages from impersonating the browser.
 
 <p class="code">
 #include &lt;emscripten/val.h&gt;   
